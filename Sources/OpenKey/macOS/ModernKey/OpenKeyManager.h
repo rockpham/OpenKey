@@ -11,8 +11,6 @@
 
 #import <Cocoa/Cocoa.h>
 
-typedef void (^CheckNewVersionCallback)(void);
-
 @interface OpenKeyManager : NSObject
 +(BOOL)isInited;
 +(BOOL)initEventTap;
@@ -25,8 +23,6 @@ typedef void (^CheckNewVersionCallback)(void);
 +(void)showMessage:(NSWindow*)window message:(NSString*)msg subMsg:(NSString*)subMsg;
 
 +(BOOL)quickConvert;
-
-+(void)checkNewVersion:(NSWindow*)parent callbackFunc:(CheckNewVersionCallback) callback;
 @end
 
 #endif /* OpenKeyManager_h */
