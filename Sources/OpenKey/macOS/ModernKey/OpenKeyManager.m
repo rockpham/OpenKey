@@ -29,9 +29,30 @@ static BOOL _isInited = NO;
 static CFMachPortRef      eventTap;
 static CGEventMask        eventMask;
 static CFRunLoopSourceRef runLoopSource;
+static NSTimer*           eventTapWatchdogTimer = nil;
 
 +(BOOL)isInited {
     return _isInited;
+}
+
++(void)startWatchdogTimer {
+    if (eventTapWatchdogTimer == nil) {
+        eventTapWatchdogTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
+                                                                 repeats:YES
+                                                                   block:^(NSTimer * _Nonnull timer) {
+            if (eventTap != nil && !CGEventTapIsEnabled(eventTap)) {
+                NSLog(@"[OpenKey] Watchdog: event tap disabled, re-enabling...");
+                CGEventTapEnable(eventTap, true);
+            }
+        }];
+    }
+}
+
++(void)stopWatchdogTimer {
+    if (eventTapWatchdogTimer != nil) {
+        [eventTapWatchdogTimer invalidate];
+        eventTapWatchdogTimer = nil;
+    }
 }
 
 +(BOOL)initEventTap {
@@ -41,14 +62,12 @@ static CFRunLoopSourceRef runLoopSource;
     //init modernKey
     OpenKeyInit();
     
-    // Create an event tap. We are interested in key presses.
+    // Create an event tap. We are interested in key presses and mouse clicks.
     eventMask = ((1 << kCGEventKeyDown) |
                  (1 << kCGEventKeyUp) |
                  (1 << kCGEventFlagsChanged) |
                  (1 << kCGEventLeftMouseDown) |
-                 (1 << kCGEventRightMouseDown) |
-                 (1 << kCGEventLeftMouseDragged) |
-                 (1 << kCGEventRightMouseDragged));
+                 (1 << kCGEventRightMouseDown));
     
     eventTap = CGEventTapCreate(kCGSessionEventTap,
                                 kCGHeadInsertEventTap,
@@ -75,20 +94,17 @@ static CFRunLoopSourceRef runLoopSource;
     // NSApplication is already running — calling CFRunLoopRun() here would
     // start a nested loop that blocks AppKit from processing UI events.
     CGEventTapEnable(eventTap, true);
-
+    
+    // Start watchdog timer to keep event tap always alive
+    [self startWatchdogTimer];
+    
     return YES;
-}
-
-// Called from OpenKeyCallback when macOS reports that it turned our tap off.
-// Only this file owns `eventTap`, so re-enabling has to happen here.
-void OpenKeyReEnableEventTap(void) {
-    if (eventTap) {
-        CGEventTapEnable(eventTap, true);
-    }
 }
 
 +(BOOL)stopEventTap {
     if (_isInited) { //release all object
+        [self stopWatchdogTimer];
+
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
         CFRelease(runLoopSource);
         runLoopSource = nil;
@@ -100,6 +116,17 @@ void OpenKeyReEnableEventTap(void) {
         _isInited = false;
     }
     return YES;
+}
+
++(void)reEnableEventTap {
+    if (eventTap != nil) {
+        CGEventTapEnable(eventTap, true);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (eventTap != nil && !CGEventTapIsEnabled(eventTap)) {
+                CGEventTapEnable(eventTap, true);
+            }
+        });
+    }
 }
 
 +(NSArray*)getTableCodes {
