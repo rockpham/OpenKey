@@ -47,8 +47,12 @@ bool hasMacro(const string& macroName);
  */
 void getAllMacro(vector<vector<Uint32>>& keys, vector<string>& macroTexts, vector<string>& macroContents);
 
+#define MAX_MACRO_TEXT_SIZE     255     //bytes of UTF-8, saved in 1 byte
+#define MAX_MACRO_CONTENT_SIZE  65535   //bytes of UTF-8, saved in 2 bytes
+
 /**
  * add new macro to memory
+ * return false when the macro is empty, too long or not valid UTF-8
  */
 bool addMacro(const string& macroText, const string& macroContent);
 

@@ -65,6 +65,21 @@ static void convert(const string& str, vector<Uint32>& outData) {
 }
 
 /**
+ * The save format stores the macro text size in 1 byte and the content size in 2 bytes,
+ * and both must be valid UTF-8; anything else would corrupt the saved data.
+ */
+static bool isValidMacro(const string& macroText, const string& macroContent) {
+    if (macroText.empty() || macroText.size() > MAX_MACRO_TEXT_SIZE || macroContent.size() > MAX_MACRO_CONTENT_SIZE)
+        return false;
+    //utf8ToWideString returns an empty string for malformed UTF-8
+    if (utf8ToWideString(macroText).empty())
+        return false;
+    if (!macroContent.empty() && utf8ToWideString(macroContent).empty())
+        return false;
+    return true;
+}
+
+/**
  * data structure:
  * byte 0 and 1: macro count
  *
@@ -79,24 +94,35 @@ static void convert(const string& str, vector<Uint32>& outData) {
  */
 void initMacroMap(const Byte* pData, const int& size) {
     macroMap.clear();
+    if (pData == NULL) return;
     Uint16 macroCount = 0;
     Uint32 cursor = 0;
-    if (size >= 2) {
+    Uint32 dataSize = size > 0 ? (Uint32)size : 0;
+    if (dataSize >= 2) {
         memcpy(&macroCount, pData + cursor, 2);
         cursor+=2;
     }
     Uint8 macroTextSize;
     Uint16 macroContentSize;
+    //stored data may be damaged (older builds truncated long sizes): stop at the first
+    //entry that does not fit instead of reading past the buffer
     for (int i = 0; i < macroCount; i++) {
+        if (cursor + 1 > dataSize) break;
         macroTextSize = pData[cursor++];
+        if (cursor + macroTextSize > dataSize) break;
         string macroText((char*)pData + cursor, macroTextSize);
         cursor += macroTextSize;
-        
+
+        if (cursor + 2 > dataSize) break;
         memcpy(&macroContentSize, pData + cursor, 2);
         cursor+=2;
+        if (cursor + macroContentSize > dataSize) break;
         string macroContent((char*)pData + cursor, macroContentSize);
         cursor += macroContentSize;
-        
+
+        if (!isValidMacro(macroText, macroContent))
+            continue;
+
         MacroData data;
         data.macroText = macroText;
         data.macroContent = macroContent;
@@ -214,6 +240,8 @@ void getAllMacro(vector<vector<Uint32>>& keys, vector<string>& macroTexts, vecto
 }
 
 bool addMacro(const string& macroText, const string& macroContent) {
+    if (!isValidMacro(macroText, macroContent))
+        return false;
     vector<Uint32> key;
     convert(macroText, key);
     if (macroMap.find(key) == macroMap.end()) { //add new macro
@@ -283,7 +311,7 @@ void readFromFile(const string& path, const bool& append) {
 					}
 				}
 
-                if (name.compare("") != 0 && !hasMacro(name)) {
+                if (isValidMacro(name, content) && !hasMacro(name)) {
                     addMacro(name, content);
                 }
             }

@@ -71,7 +71,10 @@
     string text = [[self.macroName stringValue] UTF8String];
     string content = [[self.macroContent stringValue] UTF8String];
 
-    addMacro(text, content);
+    if (!addMacro(text, content)) {
+        [self showMessage:[NSString stringWithFormat:@"Từ gõ tắt tối đa %d byte, nội dung tối đa %d byte!", MAX_MACRO_TEXT_SIZE, MAX_MACRO_CONTENT_SIZE]];
+        return;
+    }
     self.macroName.stringValue = @"";
     self.macroContent.stringValue = @"";
     [self.macroName becomeFirstResponder];

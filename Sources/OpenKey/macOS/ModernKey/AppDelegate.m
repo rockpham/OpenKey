@@ -327,27 +327,22 @@ extern bool convertToolDontAlertWhenCompleted;
 }
 
 -(void)setRunOnStartup:(BOOL)val {
-    if (@available(macOS 13.0, *)) {
-        SMAppService *service = [SMAppService mainAppService];
-        NSError *error = nil;
-        if (val) {
-            if (service.status != SMAppServiceStatusEnabled) {
-                BOOL success = [service registerAndReturnError:&error];
-                if (!success || error != nil) {
-                    NSLog(@"[OpenKey] SMAppService register error: %@", error);
-                }
-            }
-        } else {
-            if (service.status == SMAppServiceStatusEnabled) {
-                BOOL success = [service unregisterAndReturnError:&error];
-                if (!success || error != nil) {
-                    NSLog(@"[OpenKey] SMAppService unregister error: %@", error);
-                }
+    SMAppService *service = [SMAppService mainAppService];
+    NSError *error = nil;
+    if (val) {
+        if (service.status != SMAppServiceStatusEnabled) {
+            BOOL success = [service registerAndReturnError:&error];
+            if (!success || error != nil) {
+                NSLog(@"[OpenKey] SMAppService register error: %@", error);
             }
         }
     } else {
-        CFStringRef appId = (__bridge CFStringRef)@"com.tuyenmai.OpenKeyHelper";
-        SMLoginItemSetEnabled(appId, val);
+        if (service.status == SMAppServiceStatusEnabled) {
+            BOOL success = [service unregisterAndReturnError:&error];
+            if (!success || error != nil) {
+                NSLog(@"[OpenKey] SMAppService unregister error: %@", error);
+            }
+        }
     }
 }
 
@@ -522,19 +517,34 @@ extern bool convertToolDontAlertWhenCompleted;
         return;
     }
     [NSApp activateIgnoringOtherApps:YES];
+    [_mainWC.window setFrameAutosaveName:@"OpenKeyMainWindow"];
+    // Keep the user's position; re-center only when the saved frame is off every
+    // screen (e.g. it was saved on a display that is no longer connected).
+    if (![self isWindowReachable:_mainWC.window]) {
+        NSScreen *primary = [NSScreen screens].firstObject ?: [NSScreen mainScreen];
+        NSRect visible = primary.visibleFrame;
+        NSRect frame = _mainWC.window.frame;
+        NSPoint origin = NSMakePoint(
+            visible.origin.x + (visible.size.width - frame.size.width) / 2,
+            visible.origin.y + (visible.size.height - frame.size.height) / 2);
+        [_mainWC.window setFrameOrigin:origin];
+    }
     [_mainWC.window makeKeyAndOrderFront:nil];
     [_mainWC.window setLevel:NSFloatingWindowLevel];
+}
 
-    // Center on the primary screen — saved frames from prior multi-display
-    // setups can land the window off-screen.
-    [_mainWC.window setFrameAutosaveName:@""];
-    NSScreen *primary = [NSScreen screens].firstObject ?: [NSScreen mainScreen];
-    NSRect visible = primary.visibleFrame;
-    NSRect frame = _mainWC.window.frame;
-    NSPoint origin = NSMakePoint(
-        visible.origin.x + (visible.size.width - frame.size.width) / 2,
-        visible.origin.y + (visible.size.height - frame.size.height) / 2);
-    [_mainWC.window setFrameOrigin:origin];
+// A window counts as reachable when a strip of its title bar large enough to grab
+// lies inside some screen's visible area.
+-(BOOL)isWindowReachable:(NSWindow*)window {
+    NSRect frame = window.frame;
+    NSRect titleBar = NSMakeRect(frame.origin.x, NSMaxY(frame) - 22, frame.size.width, 22);
+    for (NSScreen *screen in [NSScreen screens]) {
+        NSRect overlap = NSIntersectionRect(titleBar, screen.visibleFrame);
+        if (overlap.size.width >= 80 && overlap.size.height >= 10) {
+            return YES;
+        }
+    }
+    return NO;
 }
 
 -(void) onMacroSelected {

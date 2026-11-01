@@ -10,6 +10,7 @@
 #include "Engine.h"
 #include <string.h>
 #include <list>
+#include <stdexcept>
 #include "Macro.h"
 
 static vector<Uint8> _charKeyCode = {
@@ -124,12 +125,22 @@ void findAndCalculateVowel(const bool& forGrammar=false);
 void insertMark(const Uint32& markMask, const bool& canModifyFlag=true);
 
 static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+//wstring_convert throws std::range_error on malformed input (e.g. a macro file saved in
+//TCVN3 or VNI Windows); nothing up the stack catches it, so return an empty string instead.
 wstring utf8ToWideString(const string& str) {
-    return converter.from_bytes(str.c_str());
+    try {
+        return converter.from_bytes(str.c_str());
+    } catch (const std::range_error&) {
+        return wstring();
+    }
 }
 
 string wideStringToUtf8(const wstring& str) {
-    return converter.to_bytes(str.c_str());
+    try {
+        return converter.to_bytes(str.c_str());
+    } catch (const std::range_error&) {
+        return string();
+    }
 }
 
 void* vKeyInit() {

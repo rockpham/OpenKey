@@ -21,14 +21,18 @@ void initSmartSwitchKey(const Byte* pData, const int& size) {
     if (pData == NULL) return;
     Uint16 count = 0;
     Uint32 cursor = 0;
-    if (size >= 2) {
+    Uint32 dataSize = size > 0 ? (Uint32)size : 0;
+    if (dataSize >= 2) {
         memcpy(&count, pData + cursor, 2);
         cursor+=2;
     }
     Uint8 bundleIdSize;
     Uint8 value;
+    //stop at the first entry that does not fit instead of reading past the buffer
     for (int i = 0; i < count; i++) {
+        if (cursor + 1 > dataSize) break;
         bundleIdSize = pData[cursor++];
+        if (cursor + bundleIdSize + 1 > dataSize) break;
         string bundleId((char*)pData + cursor, bundleIdSize);
         cursor += bundleIdSize;
         value = pData[cursor++];
