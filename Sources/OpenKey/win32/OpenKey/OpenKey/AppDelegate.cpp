@@ -59,32 +59,6 @@ bool AppDelegate::isDialogMsg(MSG & msg) const {
 		(aboutDialog != NULL && IsDialogMessage(aboutDialog->getHwnd(), &msg));
 }
 
-void AppDelegate::checkUpdate() {
-	string newVersion;
-	if (OpenKeyManager::checkUpdate(newVersion)) {
-		WCHAR msg[256];
-		wsprintf(msg,
-			TEXT("OpenKey Có phiên bản mới (%s), bạn có muốn cập nhật không?"),
-			utf8ToWideString(newVersion).c_str());
-
-		int msgboxID = MessageBox(
-			0,
-			msg,
-			_T("OpenKey Update"),
-			MB_ICONEXCLAMATION | MB_YESNO
-		);
-		if (msgboxID == IDYES) {
-			//Call OpenKeyUpdate
-			WCHAR path[MAX_PATH];
-			GetCurrentDirectory(MAX_PATH, path);
-			wsprintf(path, TEXT("%s\\OpenKeyUpdate.exe"), path);
-			ShellExecute(0, L"", path, 0, 0, SW_SHOWNORMAL);
-			AppDelegate::getInstance()->onOpenKeyExit();
-		}
-
-	}
-}
-
 AppDelegate::AppDelegate() {
 	_instance = this;
 }
@@ -116,10 +90,6 @@ int AppDelegate::run(HINSTANCE hInstance) {
 	if (vShowOnStartUp)
 		createMainDialog();
 	MessageBeep(MB_OK);
-
-	//check update
-	if (vCheckNewVersion)
-		checkUpdate();
 
 	MSG msg;
 	// Main message loop:

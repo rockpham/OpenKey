@@ -58,55 +58,6 @@ void OpenKeyManager::reinitHooks() {
 	OpenKeyReinitHooks();
 }
 
-bool OpenKeyManager::checkUpdate(string& newVersion) {
-	wstring dataW = OpenKeyHelper::getContentOfUrl(L"https://raw.githubusercontent.com/tuyenvm/OpenKey/master/version.json");
-	string data = wideStringToUtf8(dataW);
-
-	//simple parse
-	constexpr char versionNameStr[] = "\"versionName\":";
-	constexpr char versionCodeStr[] = "\"versionCode\":";
-	constexpr char numbers[] = "0123456789";
-	size_t posBegin = string::npos;
-	size_t posEnd = string::npos;
-
-	posBegin = data.find("latestWinVersion");
-	posBegin = data.find(versionNameStr, posBegin);
-	posBegin += (sizeof(versionNameStr) - 1);
-	posBegin = data.find('\"', posBegin);
-	posBegin = data.find_first_of(numbers, posBegin);
-
-	posEnd = data.find('\"', posBegin);
-
-	if (posBegin == string::npos || posEnd == string::npos) {
-		return false;
-	}
-
-	newVersion = data.substr(posBegin, posEnd - posBegin);
-
-	posBegin = posEnd;
-	posBegin = data.find(versionCodeStr, posBegin);
-	posBegin += (sizeof(versionCodeStr) - 1);
-
-	posEnd = data.find("}", posBegin);
-
-	if (posBegin == string::npos || posEnd == string::npos) {
-		return false;
-	}
-
-	auto shiftVersion = [](DWORD version) {
-		return (version << 16) | (version & 0x00FF00) | (version >> 16 & 0xFF);
-		};
-
-	string newVersionCodeStr = data.substr(posBegin, posEnd - posBegin);
-	DWORD newVersionCode = (DWORD)atoi(newVersionCodeStr.data());
-	newVersionCode = shiftVersion(newVersionCode);
-
-	DWORD currentVersionCode = OpenKeyHelper::getVersionNumber();
-	currentVersionCode = shiftVersion(currentVersionCode);
-
-	return newVersionCode > currentVersionCode;
-}
-
 void OpenKeyManager::createDesktopShortcut() {
 	CoInitialize(NULL);
 	IShellLink* pShellLink = NULL;
